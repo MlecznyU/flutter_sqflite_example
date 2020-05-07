@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
+import 'package:sqlite/sqlite_database.dart';
 
 void main() => runApp(MyApp());
 
@@ -13,9 +14,7 @@ class MyApp extends StatelessWidget {
         title: 'flutter_sqflite_example',
         home: HomePage(),
       ),
-      create: (BuildContext context) {
-        // here we can provide database
-      },
+      create: (BuildContext context) => SqliteDatabase(),
     );
   }
 }
@@ -26,6 +25,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  List<TaskModel> listOfTasks;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,7 +39,14 @@ class _HomePageState extends State<HomePage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: TextField(
-              onSubmitted: (String taskName) {},
+              onSubmitted: (String taskName) async {
+                final db = Provider.of<SqliteDatabase>(context, listen: false);
+                await db.insertNewTask(TaskModel(
+                  null,
+                  taskName,
+                  false,
+                ));
+              },
               decoration: InputDecoration(
                 hintText: 'title of task',
               ),
@@ -48,7 +56,11 @@ class _HomePageState extends State<HomePage> {
           Padding(
             child: RaisedButton(
               child: Icon(Icons.refresh),
-              onPressed: () {},
+              onPressed: () async {
+                final db = Provider.of<SqliteDatabase>(context, listen: false);
+                listOfTasks = await db.getAllTasks();
+                setState(() {});
+              },
             ),
             padding: const EdgeInsets.all(8),
           ),
@@ -61,17 +73,16 @@ class _HomePageState extends State<HomePage> {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: ListView.builder(
-        itemCount: 12,
-        // TODO Then change to the length of the list
+        itemCount: listOfTasks == null ? 0 : listOfTasks.length,
         itemBuilder: (_, index) {
-          //Todo Later change to the title taken from the list
-          return _buildItem('item');
+          final task = listOfTasks[index];
+          return _buildItem(task);
         },
       ),
     );
   }
 
-  Widget _buildItem(String name) {
+  Widget _buildItem(TaskModel task) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Slidable(
@@ -81,13 +92,23 @@ class _HomePageState extends State<HomePage> {
             caption: 'Delete',
             color: Colors.red,
             icon: Icons.delete,
-            onTap: () {},
+            onTap: () {
+              final db = Provider.of<SqliteDatabase>(context, listen: false);
+              db.deleteTask(task.id);
+            },
           )
         ],
         child: CheckboxListTile(
-          title: Text(name),
-          value: false,
-          onChanged: (newValue) {},
+          title: Text(task.title),
+          value: task.isDone,
+          onChanged: (newValue)  {
+            final db = Provider.of<SqliteDatabase>(context, listen: false);
+            db.updateTask(TaskModel(
+              task.id,
+              task.title,
+              newValue,
+            ));
+          },
         ),
       ),
     );
